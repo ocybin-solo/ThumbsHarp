@@ -15,7 +15,7 @@ body{position:relative;background:var(--bg);color:var(--ink);font:12px/1.2 syste
 canvas{display:block;width:100%;height:100%;touch-action:none}
 #bar{position:absolute;top:6px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;max-width:96%;gap:6px 10px;align-items:center;background:var(--panel);padding:4px 8px;border-radius:12px;white-space:nowrap;z-index:2}
 #bar label{display:flex;gap:5px;align-items:center;padding:2px 4px}
-#fs,#th,#ab,#ax{all:unset;cursor:pointer;padding:4px 9px;border:1px solid var(--dead);border-radius:8px}
+#fs,#th,#ab,#ax,#fl{all:unset;cursor:pointer;padding:4px 9px;border:1px solid var(--dead);border-radius:8px}
 select{background:transparent;color:var(--ink);border:1px solid var(--dead);border-radius:6px;padding:3px;font:inherit}
 input[type=range]{width:72px;accent-color:var(--draw)}
 #about{position:absolute;inset:0;z-index:6;background:var(--bg);overflow-y:auto;touch-action:pan-y;padding:16px;box-sizing:border-box;display:flex;justify-content:center}
@@ -41,6 +41,7 @@ input[type=range]{width:72px;accent-color:var(--draw)}
   <label data-c="tone">Tone <select id="tone"></select></label>
   <label data-c="reed">Bright <input type="range" id="reed" min="0" max="100" value="60"></label>
   <label data-c="sens">Swipe <input type="range" id="sens" min="50" max="400" value="100"></label>
+  <button id="fl" data-c="fl" title="Swap draw and blow">⇄ Flip</button>
   <button id="th" data-c="th" title="Theme: auto, light or dark">◐ Auto</button>
   <button id="ab" data-c="ab" title="About and credits">ⓘ</button>
   <button id="fs" data-c="fs" title="Full screen">⛶</button>
@@ -61,7 +62,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </div></div>
 <div id="start">
   <b>Thumb harmonica</b>
-  <span>Phone: turn to landscape and raise the volume. Left thumb: slide along the left track. Up-left is draw, down-right is blow, the middle is silent. Slide toward the middle of the screen for vibrato. Right thumb: drag the ribbon past the playhead; push inward or pull outward to open onto adjacent holes (up to 4 in total). Flick and let go and it keeps rolling; touch to stop.</span>
+  <span>Phone: turn to landscape and raise the volume. Left thumb: slide along the left track. Up-left is draw, down-right is blow, the middle is silent. Slide toward the middle of the screen for vibrato. Right thumb: drag the ribbon past the playhead. Pull outward to widen from the middle hole (up to 5 holes); push inward to split, which plays the middle hole plus a third, fifth or octave above it and skips the holes between. Flick and let go and it keeps rolling; touch to stop.</span>
   <span>Gamepad: the left and right pads (or sticks) work like the two thumbs. Triggers open neighbouring holes: left trigger to the left, right trigger to the right (analog, three stages each). D-pad moves along the top row, A edits or accepts, B cancels, Back shows a raw axis readout. Steam Input: set both pads to Joystick Move.</span>
   <span><u>Tap or press A to start</u></span>
 </div>
@@ -87,8 +88,8 @@ const TONES=[
  {n:'Flute',f:n=>n==2?.3:n==3?.12:n<7?.04:.01,nz:.1,atk:.09,fb:900,fr:2600,det:0}
 ];
 const KEYS=[['G',-5],['A♭',-4],['A',-3],['B♭',-2],['B',-1],['C',0],['D♭',1],['D',2],['E♭',3],['E',4],['F',5],['F♯',6]];
-const DEAD=.015,MAX_SPREAD=4,LOWM=40,HIGHM=100;
-const S={tun:0,tone:0,key:0,reed:.6,x:3,tT:0,tS:0,uT:0,uS:0,dir:1,pr:0,vib:0,spread:0,cell:-1,wheel:0,vph:0,wph:0,spL:0,spR:0,lt:0,vx:0,sens:1,mt:0};
+const DEAD=.015,SPLIT_MAX=3,WIDE_MAX=4,VOICES=5,LOWM=40,HIGHM=100;
+const S={tun:0,tone:0,key:0,reed:.6,x:3,tT:0,tS:0,uT:0,uS:0,dir:1,pr:0,vib:0,spread:0,cell:-1,wheel:0,vph:0,wph:0,spL:0,spR:0,side:1,flip:false,lt:0,vx:0,sens:1,mt:0};
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const T=()=>TUN[S.tun],TN=()=>TONES[S.tone];
 let xrSig='',XR={lo:0,hi:9};
@@ -119,8 +120,8 @@ function initAudio(){
   master=ac.createGain();master.gain.value=0;
   filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=1200;filt.Q.value=1.2;
   filt.connect(master);master.connect(comp);comp.connect(ac.destination);
-  // 4 voices (one per open hole); each has a second, slightly detuned reed that is only audible in tones with det > 0
-  for(let i=0;i<4;i++){
+  // 5 voices (one per open hole); each has a second, slightly detuned reed that is only audible in tones with det > 0
+  for(let i=0;i<VOICES;i++){
     const o=ac.createOscillator(),o2=ac.createOscillator(),g=ac.createGain(),g2=ac.createGain();
     g.gain.value=0;g2.gain.value=0;o.connect(g);o2.connect(g2);g2.connect(g);g.connect(filt);o.start();o2.start();voices.push({o,o2,g,g2});
   }
@@ -151,19 +152,30 @@ function xRange(){
   if(lo>hi)lo=hi=4;
   return XR={lo,hi};
 }
-// Active holes: the one under the playhead plus up to MAX_SPREAD-1 neighbours (push = one side, pull = the other)
+// Split partners, in order of push depth: a third, a fifth, then an octave (found in the tuning table, same direction)
+const SPLITS=[[3,4],[7],[12]];
+function splitPartner(c,st){
+  const R=xRange(),arr=S.dir>0?T().b:T().d;let best=null;
+  for(let q=0;q<st;q++)for(let j=c+1;j<=R.hi;j++)if(SPLITS[q].includes(arr[j]-arr[c])){best=j;break;}
+  return best;
+}
+// Active holes: the one under the playhead plus whatever pull / push / triggers add
 function activeCells(){
-  const R=xRange(),c=clamp(Math.round(S.x),R.lo,R.hi),out=[c],step=Math.sign(S.spread),count=Math.abs(S.spread);
-  const push=i=>{const idx=clamp(i,R.lo,R.hi);if(!out.includes(idx))out.push(idx);};
-  for(let i=1;i<=count;i++)push(c+step*i);
-  // triggers: left opens holes below the playhead, right opens holes above (alternating so both sides stay balanced)
+  const R=xRange(),c=clamp(Math.round(S.x),R.lo,R.hi),s=S.side,out=[c];
+  const push=i=>{if(i>=R.lo&&i<=R.hi&&!out.includes(i)){out.push(i);return true;}return false;};
+  // pull: widen from the centre hole, nearest side first (c+s, c-s, c+2s, c-2s), sliding inward at the ends of the harp
+  let need=Math.max(0,-S.spread);
+  for(let o=1;o<=VOICES&&need>0;o++){if(push(c+s*o))need--;if(need>0&&push(c-s*o))need--;}
+  // push: tongue-block split (centre hole plus one partner above it; the holes between are muted)
+  if(S.spread>0){const p=splitPartner(c,S.spread);if(p!==null)out.push(p);}
+  // triggers: extra neighbours below (left) and above (right)
   for(let i=1;i<=3;i++){if(i<=S.spL)push(c-i);if(i<=S.spR)push(c+i);}
-  return out.slice(0,4);
+  return out.slice(0,VOICES);
 }
 function notesAt(){
   const l=[];
   for(const i of activeCells()){const m=S.dir>0?blowAt(i):drawAt(i);if(!l.includes(m))l.push(m);}
-  return l.slice(0,4);
+  return l.slice(0,VOICES);
 }
 
 /* ---------- layout & colors ---------- */
@@ -194,8 +206,9 @@ function mvR(p){
   // perpendicular movement from where the thumb landed opens neighbouring holes (one direction per side)
   const stepDist=L.cell*.48,hyst=L.cell*.1;
   let sp=S.spread;
-  while(sp<MAX_SPREAD&&perp>(sp+1)*stepDist+hyst)sp++;
-  while(sp>-MAX_SPREAD&&perp<(sp-1)*stepDist-hyst)sp--;
+  // push (toward the middle of the screen, positive) = split stages; pull (outward, negative) = widening stages
+  while(sp<SPLIT_MAX&&perp>(sp+1)*stepDist+hyst)sp++;
+  while(sp>-WIDE_MAX&&perp<(sp-1)*stepDist-hyst)sp--;
   while(sp>0&&perp<sp*stepDist-hyst)sp--;
   while(sp<0&&perp>sp*stepDist+hyst)sp++;
   if(sp!==S.spread){S.spread=sp;vib(sp?9+4*Math.abs(sp):7);}
@@ -236,6 +249,7 @@ function fs(){
     if(p&&p.then)p.then(()=>{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(()=>{});}).catch(()=>{});}catch(_){}
 }
 $('#fs').onclick=fs;
+$('#fl').onclick=()=>{S.flip=!S.flip;$('#fl').textContent=S.flip?'⇄ Flipped':'⇄ Flip';};
 const THEMES=['auto','light','dark'];let thi=0;
 function applyTheme(){
   const t=THEMES[thi],r=document.documentElement;
@@ -324,11 +338,12 @@ function step(){
   // trackball coasting: a fast release keeps the ribbon rolling, then it slows and snaps
   if(!rt&&S.vx){S.x+=S.vx*dm;S.vx*=Math.exp(-2.2*dm);if(Math.abs(S.vx)<1.2)S.vx=0;}
   if(!rt&&tm0>S.wheel&&!S.vx)S.x+=(Math.round(S.x)-S.x)*.3;
+  {const f=S.x-Math.round(S.x);if(f>.15)S.side=1;else if(f<-.15)S.side=-1;}
   {const cx=clampX(S.x);if(cx!==S.x)S.vx=0;S.x=cx;}
   S.tS+=(S.tT-S.tS)*.7;S.uS+=(S.uT-S.uS)*.4;
   const a=Math.abs(S.tS),on=a>=DEAD;
   S.pr=on?Math.pow((a-DEAD)/(1-DEAD),1.2):0;
-  if(on){const d=Math.sign(S.tS);if(d!==S.dir)vib(14);else if(!wasOn)vib(8);S.dir=d;}
+  if(on){const d=Math.sign(S.tS)*(S.flip?-1:1);if(d!==S.dir)vib(14);else if(!wasOn)vib(8);S.dir=d;}
   wasOn=on;
   const u=Math.max(0,S.uS),vt=on?clamp((u-L.tw*.06)/(L.tw*.8),0,1):0,tn=performance.now(),dt=Math.min(.05,(tn-(S.lt||tn))/1000);
   S.lt=tn;S.vib+=(vt-S.vib)*.3;
@@ -381,13 +396,13 @@ function render(){
     ctx.fillStyle=C.bg;ctx.fill();
     if(isEngaged&&pr>0){
       ctx.save();ctx.clip();ctx.globalAlpha=.2+.35*pr;ctx.fillStyle=col;
-      ctx.fillRect(-sz/2,S.dir>0?0:-sz/2,sz,sz/2);ctx.restore();
+      ctx.fillRect(-sz/2,(S.dir>0)!==S.flip?0:-sz/2,sz,sz/2);ctx.restore();
     }
     ctx.lineWidth=act?3:1.5;ctx.strokeStyle=C.ink;
     ctx.globalAlpha=act?1:.5+.4*Math.exp(-d*d);ctx.stroke();ctx.globalAlpha=1;
     ctx.font='600 '+sz*.24+'px system-ui,sans-serif';
-    ctx.fillStyle=C.draw;ctx.fillText(nm(drawAt(k)+S.key),0,-sz*.27);
-    ctx.fillStyle=C.blow;ctx.fillText(nm(blowAt(k)+S.key),0,sz*.27);
+    ctx.fillStyle=S.flip?C.blow:C.draw;ctx.fillText(nm((S.flip?blowAt(k):drawAt(k))+S.key),0,-sz*.27);
+    ctx.fillStyle=S.flip?C.draw:C.blow;ctx.fillText(nm((S.flip?drawAt(k):blowAt(k))+S.key),0,sz*.27);
     ctx.font='500 '+sz*.14+'px system-ui,sans-serif';ctx.globalAlpha=.45;ctx.fillStyle=C.ink;ctx.fillText(k+1,0,0);
     ctx.restore();
   }
@@ -397,12 +412,12 @@ function render(){
   ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(-half-tw/2,-tw/2,2*half+tw,tw,tw/2);ctx.stroke();
   ctx.globalAlpha=.3;ctx.fillStyle=C.dead;ctx.fillRect(-DEAD*half,-tw/2+5,2*DEAD*half,tw-10);
   ctx.lineWidth=4;
-  ctx.strokeStyle=C.draw;ctx.globalAlpha=S.dir<0&&pr>0?1:.55;
+  ctx.strokeStyle=S.flip?C.blow:C.draw;ctx.globalAlpha=S.tS<0&&pr>0?1:.55;
   ctx.beginPath();ctx.moveTo(-half,0);ctx.lineTo(-DEAD*half-6,0);ctx.stroke();
-  ctx.strokeStyle=C.blow;ctx.globalAlpha=S.dir>0&&pr>0?1:.55;
+  ctx.strokeStyle=S.flip?C.draw:C.blow;ctx.globalAlpha=S.tS>0&&pr>0?1:.55;
   ctx.beginPath();ctx.moveTo(DEAD*half+6,0);ctx.lineTo(half,0);ctx.stroke();
   ctx.globalAlpha=.8;ctx.fillStyle=C.ink;ctx.font='500 12px system-ui,sans-serif';
-  ctx.fillText('DRAW',-half*.55,tw/2+14);ctx.fillText('OFF',0,tw/2+14);ctx.fillText('BLOW',half*.55,tw/2+14);
+  ctx.fillText(S.flip?'BLOW':'DRAW',-half*.55,tw/2+14);ctx.fillText('OFF',0,tw/2+14);ctx.fillText(S.flip?'DRAW':'BLOW',half*.55,tw/2+14);
   ctx.restore();
 
   // airflow line (ripples with the live wave shape)
@@ -431,7 +446,7 @@ function render(){
 
   // readout under the focal point
   const ns=notesAt(),main=ns.map(m=>nm(Math.round(m)+S.key)).join(' ');
-  const sub=(pr>0?(S.dir>0?'blow':'draw'):'')+(engaged.length>1?'  '+engaged.length+' holes':'')+(S.vib>.05?'  vibrato':'');
+  const sub=(pr>0?(S.dir>0?'blow':'draw'):'')+(engaged.length>1?(S.spread>0?'  split':'  '+engaged.length+' holes'):'')+(S.vib>.05?'  vibrato':'');
   ctx.fillStyle=C.ink;ctx.font=(main.length>8?'700 18px':'700 24px')+' system-ui,sans-serif';ctx.fillText(main,F.x,F.y+46);
   ctx.globalAlpha=.7;ctx.font='500 12px system-ui,sans-serif';ctx.fillText(sub,F.x,F.y+68);ctx.globalAlpha=1;
 
