@@ -1,4 +1,4 @@
-# Thumb Harmonica
+# ThumbsHarp
 
 A two-thumb virtual harmonica that runs in your browser. One file, no install, no dependencies.
 
@@ -10,7 +10,8 @@ Best on a phone held in landscape. Raise the volume and tap to start.
 
 - **Left thumb is your breath.** Slide along the left track. Up-left is draw, down-right is blow, and the middle is silent. The further you slide, the harder you breathe. Slide toward the middle of the screen for vibrato.
 - **Right thumb is the harmonica.** Drag the ribbon of holes past the fixed playhead. Flick and let go and it keeps rolling like a trackball. Touch it to stop.
-- **Push or pull for more holes.** Move the right thumb inward or outward to open onto the neighbouring holes, for up to four holes at once (chords, dyads and runs).
+- **Pull outward to widen.** Moving the right thumb outward adds holes one at a time around the middle hole, nearest side first (1, 2, 3, 4, then 5 holes) for dyads, chords and runs.
+- **Push inward to split.** Like tongue-blocking on a real harp, this plays the middle hole plus a partner above it and skips the holes between. Pushing deeper steps from a third to a fifth to an octave, using whichever hole in the tuning has that interval (if there isn't one, it holds the previous interval).
 
 ## Controls
 
@@ -19,6 +20,7 @@ Best on a phone held in landscape. Raise the volume and tap to start.
 - **Tone:** Harmonica, Clarinet, Sax, Flute
 - **Bright:** how much overtone the tone has
 - **Swipe:** how far the ribbon moves per swipe
+- **Flip:** swaps draw and blow on the left track
 - **◐:** theme, cycling Auto, Light and Dark
 - **ⓘ:** credits and license
 - **⛶:** full screen
@@ -28,7 +30,7 @@ Best on a phone held in landscape. Raise the volume and tap to start.
 Tested with a Steam Controller (its pads and its sticks both work).
 
 - **Left pad or stick** works like the left thumb (breath and vibrato), and the **right pad or stick** works like the right thumb (the ribbon).
-- **Triggers** open neighbouring holes in analog stages: the left trigger opens up to three holes to the left of the one under the playhead, and the right trigger does the same on the right. The total stays capped at four holes.
+- **Triggers** open neighbouring holes in analog stages: the left trigger opens up to three holes to the left of the one under the playhead, and the right trigger does the same on the right. The total stays capped at five holes.
 - **D-pad** moves along the top row of controls. A starts editing a control and accepts it, and B cancels.
 - **Back** (or the G key on a keyboard) shows a raw readout of the axes and buttons the browser is receiving, which is useful for debugging a layout.
 
