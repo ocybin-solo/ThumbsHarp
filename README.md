@@ -43,7 +43,7 @@ I haven't gotten this working on my own setup yet. If you have, I'd love to hear
 
 ## Run it locally
 
-Download `index.html` and open it in a modern browser. Chrome and Edge are the best-tested. The Gamepad API generally needs https or a local file, so a hosted copy like the link above works fine.
+Download `index.html` and open it in a modern browser. Chrome and Firefox are the browsers that I tested. The Gamepad API generally needs https or a local file, so a hosted copy like the link above works fine.
 
 ## Credits
 
