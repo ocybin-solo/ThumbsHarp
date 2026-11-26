@@ -1,4 +1,4 @@
-# ThumbsHarp
+# Thumb Harmonica
 
 A two-thumb virtual harmonica that runs in your browser. One file, no install, no dependencies.
 
@@ -23,27 +23,26 @@ Best on a phone held in landscape. Raise the volume and tap to start.
 - **ⓘ:** credits and license
 - **⛶:** full screen
 
-## Gamepad (experimental, untested on real hardware)
+## Gamepad
 
-Gamepad support is built in but I haven't been able to test it yet, so feedback is very welcome.
+Tested with a Steam Controller (its pads and its sticks both work).
 
-- Left pad or stick works like the left thumb, and the right pad or stick works like the right thumb.
-- D-pad moves along the top row of controls. A starts editing a control and accepts it, and B cancels.
-- Back (or the G key on a keyboard) shows a raw readout of the axes and buttons the browser is receiving, which is useful for debugging a controller layout.
+- **Left pad or stick** works like the left thumb (breath and vibrato), and the **right pad or stick** works like the right thumb (the ribbon).
+- **Triggers** open neighbouring holes in analog stages: the left trigger opens up to three holes to the left of the one under the playhead, and the right trigger does the same on the right. The total stays capped at four holes.
+- **D-pad** moves along the top row of controls. A starts editing a control and accepts it, and B cancels.
+- **Back** (or the G key on a keyboard) shows a raw readout of the axes and buttons the browser is receiving, which is useful for debugging a layout.
 
-### Steam Controller
+### Steam Controller setup (what worked for me)
 
-The idea is to use the touchpads as the two thumbs. The browser only sees them as joystick axes if Steam Input is set up for that:
+1. Add Chrome to Steam as a non-Steam game.
+2. Open its properties and rename it to whatever you like (for example "Thumb Harmonica"). In the launch options, put `https://ocybin-solo.github.io/ThumbsHarp/`. Optionally add `--kiosk` before the link to start in full screen.
+3. Open the controller configuration for it and set both pads to **Joystick Move**. A stick works too. I did not enable adaptive centering.
 
-1. Run the browser with a gamepad-style Steam Input layout (for example, by adding it to Steam as a non-Steam game).
-2. Set both touchpads to **Joystick Move**, so finger position becomes stick position and lifting goes back to zero.
-3. Set the touchpads' deadzone so that placing a finger doesn't nudge the controls.
-
-I haven't gotten this working on my own setup yet. If you have, I'd love to hear what layout worked.
+That's all it took. Other controllers should work if the browser recognises them as a gamepad, but I've only tried the Steam Controller.
 
 ## Run it locally
 
-Download `index.html` and open it in a modern browser. Chrome and Firefox are the browsers that I tested. The Gamepad API generally needs https or a local file, so a hosted copy like the link above works fine.
+Download `index.html` and open it in a modern browser. Chrome and Edge are the best-tested. The Gamepad API generally needs https or a local file, so a hosted copy like the link above works fine.
 
 ## Credits
 
