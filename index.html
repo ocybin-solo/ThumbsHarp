@@ -87,7 +87,7 @@ const TONES=[
  {n:'Flute',f:n=>n==2?.3:n==3?.12:n<7?.04:.01,nz:.1,atk:.09,fb:900,fr:2600,det:0}
 ];
 const KEYS=[['G',-5],['A♭',-4],['A',-3],['B♭',-2],['B',-1],['C',0],['D♭',1],['D',2],['E♭',3],['E',4],['F',5],['F♯',6]];
-const DEAD=.015,MAX_SPREAD=4,LOWM=40,HIGHM=100;
+const DEAD=.015,MAX_SPREAD=3,LOWM=40,HIGHM=100;
 const S={tun:0,tone:0,key:0,reed:.6,x:3,tT:0,tS:0,uT:0,uS:0,dir:1,pr:0,vib:0,spread:0,cell:-1,wheel:0,vph:0,wph:0,lt:0,vx:0,sens:1,mt:0};
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const T=()=>TUN[S.tun],TN=()=>TONES[S.tone];
