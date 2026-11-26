@@ -1,4 +1,4 @@
-# ThumbsHarp
+# Thumb Harmonica
 
 A two-thumb virtual harmonica that runs in your browser. One file, no install, no dependencies.
 
