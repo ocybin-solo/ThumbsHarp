@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Dual-Thumb Harmonica</title>
+<title>Thumb Harmonica</title>
 <style>
 :root{--bg:#f4f5f7;--ink:#171a24;--dead:#a8adb8;--draw:#2a7de1;--blow:#c4284c;--panel:rgba(0,0,0,.06);color-scheme:light dark;box-sizing:border-box;background:var(--bg);padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1218;--ink:#e8eaf0;--dead:#5b6170;--draw:#4da3ff;--blow:#ff5c7c;--panel:rgba(255,255,255,.08)}}
@@ -25,8 +25,8 @@ input[type=range]{width:72px;accent-color:var(--draw)}
 #about p{margin:6px 0}
 #about small{display:block;opacity:.7;font-size:11px;line-height:1.4;white-space:pre-wrap}
 #ax{display:inline-block;margin-top:10px}
-.f{outline:2px solid var(--draw);outline-offset:2px;border-radius:8px}
-.ed{outline-color:var(--blow)}
+#bar .f{outline:2px solid var(--draw);outline-offset:2px;border-radius:8px}
+#bar .ed{outline-color:var(--blow)}
 #dbg{position:absolute;left:8px;bottom:8px;margin:0;font:11px/1.3 ui-monospace,Consolas,monospace;background:var(--panel);padding:4px 6px;border-radius:6px;z-index:3;pointer-events:none}
 #start{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;background:var(--bg);cursor:pointer;padding:16px}
 #start b{font-size:20px}
@@ -47,10 +47,10 @@ input[type=range]{width:72px;accent-color:var(--draw)}
 </div>
 <pre id="dbg" hidden></pre>
 <div id="about" hidden><div>
-  <h3>Dual-Thumb Harmonica</h3>
-  <p><b>Idea, design and testing:</b> ocybin<br><b>Code and suggestions:</b> Claude (Anthropic)<br><b>Extra-holes (push/pull) code:</b> first drafted by Gemini (Google), later refined with Claude. Gemini also helped shape the idea.<br><b>Crash fix:</b> ChatGPT (OpenAI)</p>
+  <h3>Thumb Harmonica</h3>
+  <p><b>Idea, design and testing:</b> Cybin<br><b>Code and suggestions:</b> Claude (Anthropic)<br><b>Extra-holes (push/pull) code:</b> first drafted by Gemini (Google), later refined with Claude. Gemini also helped shape the idea.<br><b>Crash fix:</b> ChatGPT (OpenAI)</p>
   <p>Free to use, share and modify under the MIT License:</p>
-  <small>Copyright (c) 2026 ocybin (Jeff Box)
+  <small>Copyright (c) 2026 Cybin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -60,9 +60,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
   <button id="ax">Close</button>
 </div></div>
 <div id="start">
-  <b>Dual-thumb harmonica</b>
+  <b>Thumb harmonica</b>
   <span>Phone: turn to landscape and raise the volume. Left thumb: slide along the left track. Up-left is draw, down-right is blow, the middle is silent. Slide toward the middle of the screen for vibrato. Right thumb: drag the ribbon past the playhead; push inward or pull outward to open onto adjacent holes (up to 4 in total). Flick and let go and it keeps rolling; touch to stop.</span>
-  <span>Gamepad: the left and right pads (or sticks) work like the two thumbs. D-pad moves along the top row, A edits or accepts, B cancels, Back shows a raw axis readout. Steam Input: set both pads to Joystick Move.</span>
+  <span>Gamepad: the left and right pads (or sticks) work like the two thumbs. Triggers open neighbouring holes: left trigger to the left, right trigger to the right (analog, three stages each). D-pad moves along the top row, A edits or accepts, B cancels, Back shows a raw axis readout. Steam Input: set both pads to Joystick Move.</span>
   <span><u>Tap or press A to start</u></span>
 </div>
 <script>
@@ -87,8 +87,8 @@ const TONES=[
  {n:'Flute',f:n=>n==2?.3:n==3?.12:n<7?.04:.01,nz:.1,atk:.09,fb:900,fr:2600,det:0}
 ];
 const KEYS=[['G',-5],['A♭',-4],['A',-3],['B♭',-2],['B',-1],['C',0],['D♭',1],['D',2],['E♭',3],['E',4],['F',5],['F♯',6]];
-const DEAD=.015,MAX_SPREAD=3,LOWM=40,HIGHM=100;
-const S={tun:0,tone:0,key:0,reed:.6,x:3,tT:0,tS:0,uT:0,uS:0,dir:1,pr:0,vib:0,spread:0,cell:-1,wheel:0,vph:0,wph:0,lt:0,vx:0,sens:1,mt:0};
+const DEAD=.015,MAX_SPREAD=4,LOWM=40,HIGHM=100;
+const S={tun:0,tone:0,key:0,reed:.6,x:3,tT:0,tS:0,uT:0,uS:0,dir:1,pr:0,vib:0,spread:0,cell:-1,wheel:0,vph:0,wph:0,spL:0,spR:0,lt:0,vx:0,sens:1,mt:0};
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const T=()=>TUN[S.tun],TN=()=>TONES[S.tone];
 let xrSig='',XR={lo:0,hi:9};
@@ -154,8 +154,11 @@ function xRange(){
 // Active holes: the one under the playhead plus up to MAX_SPREAD-1 neighbours (push = one side, pull = the other)
 function activeCells(){
   const R=xRange(),c=clamp(Math.round(S.x),R.lo,R.hi),out=[c],step=Math.sign(S.spread),count=Math.abs(S.spread);
-  for(let i=1;i<=count;i++){const idx=clamp(c+step*i,R.lo,R.hi);if(!out.includes(idx))out.push(idx);}
-  return out;
+  const push=i=>{const idx=clamp(i,R.lo,R.hi);if(!out.includes(idx))out.push(idx);};
+  for(let i=1;i<=count;i++)push(c+step*i);
+  // triggers: left opens holes below the playhead, right opens holes above (alternating so both sides stay balanced)
+  for(let i=1;i<=3;i++){if(i<=S.spL)push(c-i);if(i<=S.spR)push(c+i);}
+  return out.slice(0,4);
 }
 function notesAt(){
   const l=[];
@@ -279,12 +282,13 @@ function padBtn(b){
   }
   mark();
 }
+const stg=(v,n)=>{const t=[.2,.5,.8];let k=n;while(k<3&&v>t[k]+.04)k++;while(k>0&&v<t[k-1]-.04)k--;return k;};
 function pollGP(){
   gp=[...(navigator.getGamepads?navigator.getGamepads():[])].find(g=>g&&g.connected&&g.axes.length>=4)||null;
   const dbg=$('#dbg');
   if(!dbg.hidden)dbg.textContent=gp?gp.id.slice(0,44)+'\naxes '+gp.axes.slice(0,6).map(v=>v.toFixed(2)).join(' ')+'\nbtn '+gp.buttons.map((b,i)=>b.pressed?i:'').join(' '):'no gamepad (press a button on it)';
   if(!gp){
-    if(GL&&!lt){S.tT=0;S.uT=0;}GL=false;
+    if(GL&&!lt){S.tT=0;S.uT=0;}GL=false;S.spL=S.spR=0;
     if(rt&&rt.id==='gp')endR();
     return;
   }
@@ -295,6 +299,8 @@ function pollGP(){
     if(p){if(!(id in HB)){HB[id]=t+350;padBtn(id);}else if(id>11&&t>HB[id]){HB[id]=t+90;padBtn(id);}}
     else delete HB[id];
   }
+  const tl=stg(gp.buttons[6]?gp.buttons[6].value:0,S.spL),tr=stg(gp.buttons[7]?gp.buttons[7].value:0,S.spR);
+  if(tl!==S.spL||tr!==S.spR){vib(7+3*Math.max(tl,tr));S.spL=tl;S.spR=tr;}
   const a=gp.axes,lx=a[0]||0,ly=a[1]||0,rx=a[2]||0,ry=a[3]||0,r=Math.SQRT1_2;
   // left pad/stick = left thumb: along the diagonal is draw/blow, inward (up-right) is vibrato
   if(!lt){
