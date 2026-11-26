@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dual-Thumb Harmonica</title>
+<style>
+:root{--bg:#f4f5f7;--ink:#171a24;--dead:#a8adb8;--draw:#2a7de1;--blow:#c4284c;--panel:rgba(0,0,0,.06);color-scheme:light dark;box-sizing:border-box;background:var(--bg);padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1218;--ink:#e8eaf0;--dead:#5b6170;--draw:#4da3ff;--blow:#ff5c7c;--panel:rgba(255,255,255,.08)}}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1218;--ink:#e8eaf0;--dead:#5b6170;--draw:#4da3ff;--blow:#ff5c7c;--panel:rgba(255,255,255,.08)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{position:relative;background:var(--bg);color:var(--ink);font:12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#bar{position:absolute;top:6px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;max-width:96%;gap:6px 10px;align-items:center;background:var(--panel);padding:4px 8px;border-radius:12px;white-space:nowrap;z-index:2}
+#bar label{display:flex;gap:5px;align-items:center;padding:2px 4px}
+#fs,#th,#ab,#ax{all:unset;cursor:pointer;padding:4px 9px;border:1px solid var(--dead);border-radius:8px}
+select{background:transparent;color:var(--ink);border:1px solid var(--dead);border-radius:6px;padding:3px;font:inherit}
+input[type=range]{width:72px;accent-color:var(--draw)}
+#about{position:absolute;inset:0;z-index:6;background:var(--bg);overflow-y:auto;touch-action:pan-y;padding:16px;box-sizing:border-box;display:flex;justify-content:center}
+#about[hidden]{display:none}
+#about div{max-width:520px;font-size:13px;line-height:1.5}
+#about h3{margin:0 0 6px;font-size:18px}
+#about p{margin:6px 0}
+#about small{display:block;opacity:.7;font-size:11px;line-height:1.4;white-space:pre-wrap}
+#ax{display:inline-block;margin-top:10px}
+.f{outline:2px solid var(--draw);outline-offset:2px;border-radius:8px}
+.ed{outline-color:var(--blow)}
+#dbg{position:absolute;left:8px;bottom:8px;margin:0;font:11px/1.3 ui-monospace,Consolas,monospace;background:var(--panel);padding:4px 6px;border-radius:6px;z-index:3;pointer-events:none}
+#start{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;background:var(--bg);cursor:pointer;padding:16px}
+#start b{font-size:20px}
+#start span{max-width:460px;opacity:.75;font-size:13px;line-height:1.45}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="bar">
+  <label data-c="tun">Tuning <select id="tun"></select></label>
+  <label data-c="key">Key <select id="key"></select></label>
+  <label data-c="tone">Tone <select id="tone"></select></label>
+  <label data-c="reed">Bright <input type="range" id="reed" min="0" max="100" value="60"></label>
+  <label data-c="sens">Swipe <input type="range" id="sens" min="50" max="400" value="100"></label>
+  <button id="th" data-c="th" title="Theme: auto, light or dark">◐ Auto</button>
+  <button id="ab" data-c="ab" title="About and credits">ⓘ</button>
+  <button id="fs" data-c="fs" title="Full screen">⛶</button>
+</div>
+<pre id="dbg" hidden></pre>
+<div id="about" hidden><div>
+  <h3>Dual-Thumb Harmonica</h3>
+  <p><b>Idea, design and testing:</b> Cybin<br><b>Code and suggestions:</b> Claude (Anthropic)<br><b>Extra-holes (push/pull) code:</b> first drafted by Gemini (Google), later refined with Claude. Gemini also helped shape the idea.<br><b>Crash fix:</b> ChatGPT (OpenAI)</p>
+  <p>Free to use, share and modify under the MIT License:</p>
+  <small>Copyright (c) 2026 Cybin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</small>
+  <button id="ax">Close</button>
+</div></div>
+<div id="start">
+  <b>Dual-thumb harmonica</b>
+  <span>Phone: turn to landscape and raise the volume. Left thumb: slide along the left track. Up-left is draw, down-right is blow, the middle is silent. Slide toward the middle of the screen for vibrato. Right thumb: drag the ribbon past the playhead; push inward or pull outward to open onto adjacent holes (up to 4 in total). Flick and let go and it keeps rolling; touch to stop.</span>
+  <span>Gamepad: the left and right pads (or sticks) work like the two thumbs. D-pad moves along the top row, A edits or accepts, B cancels, Back shows a raw axis readout. Steam Input: set both pads to Joystick Move.</span>
+  <span><u>Tap or press A to start</u></span>
+</div>
+<script>
+(()=>{
+const $=s=>document.querySelector(s),cv=$('#cv'),ctx=cv.getContext('2d');
+if(!ctx.roundRect)ctx.roundRect=function(x,y,w,h,r){r=Math.min(r,w/2,h/2);this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();};
+const NAMES=['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+// Tunings: MIDI notes for holes 1-10 in C. Add a row to add a tuning.
+const TUN=[
+ {n:'Richter',b:[60,64,67,72,76,79,84,88,91,96],d:[62,67,71,74,77,81,83,86,89,93]},
+ {n:'Country',b:[60,64,67,72,76,79,84,88,91,96],d:[62,67,71,74,78,81,83,86,89,93]},
+ {n:'Natural minor',b:[60,63,67,72,75,79,84,87,91,96],d:[62,67,70,74,77,80,82,86,89,92]},
+ {n:'Harmonic minor',b:[60,63,67,72,75,79,84,87,91,96],d:[62,67,71,74,77,80,83,86,89,92]},
+ {n:'Gypsy (Hungarian)',b:[60,63,67,72,75,79,84,87,91,96],d:[62,67,71,74,78,80,83,86,90,92]}
+];
+// Tones: f(n) = strength of harmonic n (scaled by the Bright slider); nz = breath noise; atk = attack smoothing (s);
+// fb/fr = filter base + how far breath pressure opens it; det = second-reed detune in cents (0 = single reed)
+const TONES=[
+ {n:'Harmonica',f:n=>Math.pow(n,-.9)*(n%2?1:.85),nz:.05,atk:.03,fb:600,fr:4200,det:6},
+ {n:'Clarinet',f:n=>n%2?Math.pow(n,-.7):.05/n,nz:.03,atk:.035,fb:700,fr:3000,det:0},
+ {n:'Sax',f:n=>Math.pow(n,-.6)*(n<4?1.15:1),nz:.06,atk:.05,fb:500,fr:5500,det:3},
+ {n:'Flute',f:n=>n==2?.3:n==3?.12:n<7?.04:.01,nz:.1,atk:.09,fb:900,fr:2600,det:0}
+];
+const KEYS=[['G',-5],['A♭',-4],['A',-3],['B♭',-2],['B',-1],['C',0],['D♭',1],['D',2],['E♭',3],['E',4],['F',5],['F♯',6]];
+const DEAD=.015,MAX_SPREAD=4,LOWM=40,HIGHM=100;
+const S={tun:0,tone:0,key:0,reed:.6,x:3,tT:0,tS:0,uT:0,uS:0,dir:1,pr:0,vib:0,spread:0,cell:-1,wheel:0,vph:0,wph:0,lt:0,vx:0,sens:1,mt:0};
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const T=()=>TUN[S.tun],TN=()=>TONES[S.tone];
+let xrSig='',XR={lo:0,hi:9};
+const clampX=x=>{const r=xRange();return clamp(x,r.lo,r.hi);};
+const pretty=s=>s.replace('b','♭').replace('#','♯');
+const nm=m=>pretty(NAMES[((m%12)+12)%12])+(Math.floor(m/12)-1);
+const blowAt=k=>T().b[clamp(k,0,9)],drawAt=k=>T().d[clamp(k,0,9)];
+const add=(p,d,k)=>({x:p.x+d.x*k,y:p.y+d.y*k});
+let ac,master,filt,noiseG,voices=[],C={},W=0,H=0,L={},dpr=1,lt=null,rt=null,lastVib=0,wasOn=false,amps=[];
+let gp=null,GL=false,GRa=null;
+const table=new Float32Array(64);
+
+/* ---------- wave shape (hook for the sinewave manipulator) ---------- */
+// amps[n] = amplitude of harmonic n. Each tone supplies its own recipe; Bright scales the overtones.
+function setWave(){
+  const M=16,f=TN().f;amps=[0];
+  for(let n=1;n<=M;n++)amps[n]=n===1?1:S.reed*f(n);
+  let mx=0;
+  for(let j=0;j<64;j++){let s=0;for(let n=1;n<=M;n++)s+=amps[n]*Math.sin(n*2*Math.PI*j/64);table[j]=s;mx=Math.max(mx,Math.abs(s));}
+  for(let j=0;j<64;j++)table[j]/=mx||1;
+  if(ac){const w=ac.createPeriodicWave(new Float32Array(M+1),Float32Array.from(amps));voices.forEach(v=>{v.o.setPeriodicWave(w);v.o2.setPeriodicWave(w);v.g2.gain.value=TN().det?.7:0;});}
+}
+
+/* ---------- audio ---------- */
+function initAudio(){
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  const comp=ac.createDynamicsCompressor();
+  master=ac.createGain();master.gain.value=0;
+  filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=1200;filt.Q.value=1.2;
+  filt.connect(master);master.connect(comp);comp.connect(ac.destination);
+  // 4 voices (one per open hole); each has a second, slightly detuned reed that is only audible in tones with det > 0
+  for(let i=0;i<4;i++){
+    const o=ac.createOscillator(),o2=ac.createOscillator(),g=ac.createGain(),g2=ac.createGain();
+    g.gain.value=0;g2.gain.value=0;o.connect(g);o2.connect(g2);g2.connect(g);g.connect(filt);o.start();o2.start();voices.push({o,o2,g,g2});
+  }
+  const nb=ac.createBuffer(1,ac.sampleRate,ac.sampleRate),d=nb.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  const ns=ac.createBufferSource();ns.buffer=nb;ns.loop=true;
+  const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=2600;bp.Q.value=.7;
+  noiseG=ac.createGain();noiseG.gain.value=0;
+  ns.connect(bp);bp.connect(noiseG);noiseG.connect(master);ns.start();
+  setWave();ac.resume();
+}
+
+function vib(ms){
+  const n=performance.now();if(n-lastVib<=25)return;lastVib=n;
+  if(navigator.vibrate)navigator.vibrate(ms);
+  if(gp&&gp.vibrationActuator){try{gp.vibrationActuator.playEffect('dual-rumble',{duration:Math.min(60,ms*2),strongMagnitude:.1,weakMagnitude:.25});}catch(_){}}
+}
+
+/* ---------- note logic ---------- */
+// first and last ribbon holes whose notes (blow and draw) stay inside the safe pitch window for this key
+function xRange(){
+  const sig=S.tun+'|'+S.key;if(sig===xrSig)return XR;xrSig=sig;
+  let lo=1e9,hi=-1e9;
+  for(let k=0;k<10;k++){
+    const a=T().b[k]+S.key,b=T().d[k]+S.key;
+    if(Math.min(a,b)>=LOWM&&Math.max(a,b)<=HIGHM){lo=Math.min(lo,k);hi=Math.max(hi,k);}
+  }
+  if(lo>hi)lo=hi=4;
+  return XR={lo,hi};
+}
+// Active holes: the one under the playhead plus up to MAX_SPREAD-1 neighbours (push = one side, pull = the other)
+function activeCells(){
+  const R=xRange(),c=clamp(Math.round(S.x),R.lo,R.hi),out=[c],step=Math.sign(S.spread),count=Math.abs(S.spread);
+  for(let i=1;i<=count;i++){const idx=clamp(c+step*i,R.lo,R.hi);if(!out.includes(idx))out.push(idx);}
+  return out;
+}
+function notesAt(){
+  const l=[];
+  for(const i of activeCells()){const m=S.dir>0?blowAt(i):drawAt(i);if(!l.includes(m))l.push(m);}
+  return l.slice(0,4);
+}
+
+/* ---------- layout & colors ---------- */
+function readColors(){const cs=getComputedStyle(document.documentElement);['bg','ink','dead','draw','blow'].forEach(k=>C[k]=cs.getPropertyValue('--'+k).trim());}
+function resize(){
+  dpr=Math.min(devicePixelRatio||1,3);
+  W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  const r=Math.SQRT1_2;
+  L={F:{x:W*.5,y:H*.3},CL:{x:W*.24,y:H*.66},CR:{x:W*.76,y:H*.66},
+     dL:{x:r,y:r},nL:{x:r,y:-r},dR:{x:r,y:-r},nR:{x:-r,y:-r},
+     half:H*.3,tw:H*.2,cell:H*.17,ang:-Math.PI/4};
+  readColors();
+}
+
+/* ---------- input: touch / mouse ---------- */
+const pt=e=>{const rc=cv.getBoundingClientRect();return{x:e.clientX-rc.left,y:e.clientY-rc.top};};
+function mvL(p){
+  const dx=p.x-L.CL.x,dy=p.y-L.CL.y;
+  S.tT=clamp((dx*L.dL.x+dy*L.dL.y)/L.half,-1,1);
+  S.uT=dx*L.nL.x+dy*L.nL.y;
+}
+function startR(id,x,y){rt={id,sx:x,sy:y,x0:S.x,vv:0,vt:performance.now()};S.spread=0;S.vx=0;}
+function endR(){S.vx=performance.now()-rt.vt<80?clamp(rt.vv,-40,40):0;rt=null;S.spread=0;}
+function mvR(p){
+  const dx=p.x-rt.sx,dy=p.y-rt.sy,along=dx*L.dR.x+dy*L.dR.y,perp=dx*L.nR.x+dy*L.nR.y;
+  const nx=clampX(rt.x0-along*S.sens/L.cell),tm=performance.now(),dtv=Math.max(.004,(tm-rt.vt)/1000);
+  rt.vv=.5*rt.vv+.5*((nx-S.x)/dtv);rt.vt=tm;S.x=nx;
+  // perpendicular movement from where the thumb landed opens neighbouring holes (one direction per side)
+  const stepDist=L.cell*.48,hyst=L.cell*.1;
+  let sp=S.spread;
+  while(sp<MAX_SPREAD&&perp>(sp+1)*stepDist+hyst)sp++;
+  while(sp>-MAX_SPREAD&&perp<(sp-1)*stepDist-hyst)sp--;
+  while(sp>0&&perp<sp*stepDist-hyst)sp--;
+  while(sp<0&&perp>sp*stepDist+hyst)sp++;
+  if(sp!==S.spread){S.spread=sp;vib(sp?9+4*Math.abs(sp):7);}
+}
+cv.addEventListener('pointerdown',e=>{
+  if(ac&&ac.state!=='running')ac.resume();
+  cv.setPointerCapture(e.pointerId);const p=pt(e);
+  if(p.x<W/2){if(!lt){lt={id:e.pointerId};mvL(p);}}
+  else if(!rt)startR(e.pointerId,p.x,p.y);
+});
+cv.addEventListener('pointermove',e=>{
+  const p=pt(e);
+  if(lt&&lt.id===e.pointerId)mvL(p);else if(rt&&rt.id===e.pointerId)mvR(p);
+});
+const up=e=>{
+  if(lt&&lt.id===e.pointerId){lt=null;S.tT=0;S.uT=0;}
+  if(rt&&rt.id===e.pointerId)endR();
+};
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+// desktop testing: hold the mouse on the left side to breathe, use the wheel to move the ribbon
+cv.addEventListener('wheel',e=>{e.preventDefault();S.x=clampX(S.x+Math.sign(e.deltaY)*.25);S.wheel=performance.now()+300;},{passive:false});
+document.addEventListener('visibilitychange',()=>{if(ac&&!document.hidden)ac.resume();});
+addEventListener('keydown',e=>{if(e.key==='g'){const d=$('#dbg');d.hidden=!d.hidden;}});
+
+/* ---------- controls ---------- */
+const fill=(id,arr)=>arr.forEach((n,i)=>{const o=document.createElement('option');o.value=i;o.textContent=n;$(id).appendChild(o);});
+fill('#tun',TUN.map(t=>t.n));fill('#key',KEYS.map(k=>k[0]));fill('#tone',TONES.map(t=>t.n));$('#key').value=5;
+$('#tun').onchange=e=>{S.tun=+e.target.value;S.x=clampX(S.x);};
+$('#key').onchange=e=>{S.key=KEYS[+e.target.value][1];S.x=clampX(S.x);};
+$('#tone').onchange=e=>{S.tone=+e.target.value;setWave();};
+$('#reed').oninput=e=>{S.reed=e.target.value/100;setWave();};
+$('#sens').oninput=e=>{S.sens=e.target.value/100;};
+function fs(){
+  const d=document,el=d.documentElement;
+  if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d);return;}
+  try{const p=(el.requestFullscreen||el.webkitRequestFullscreen).call(el);
+    if(p&&p.then)p.then(()=>{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(()=>{});}).catch(()=>{});}catch(_){}
+}
+$('#fs').onclick=fs;
+const THEMES=['auto','light','dark'];let thi=0;
+function applyTheme(){
+  const t=THEMES[thi],r=document.documentElement;
+  t==='auto'?r.removeAttribute('data-theme'):r.setAttribute('data-theme',t);
+  $('#th').textContent='◐ '+t[0].toUpperCase()+t.slice(1);readColors();
+  try{localStorage.setItem('harmTheme',thi);}catch(_){}
+}
+try{thi=clamp(+localStorage.getItem('harmTheme')||0,0,2);}catch(_){}
+$('#th').onclick=()=>{thi=(thi+1)%3;applyTheme();};
+$('#ab').onclick=()=>{$('#about').hidden=false;};
+$('#ax').onclick=()=>{$('#about').hidden=true;};
+addEventListener('keydown',e=>{if(e.key==='Escape')$('#about').hidden=true;});
+function go(){
+  if(matchMedia('(pointer:coarse)').matches)fs();
+  if(!ac)initAudio();
+  ac.resume().then(()=>{if(ac.state==='running'&&$('#start'))$('#start').remove();});
+}
+$('#start').onclick=go;
+
+/* ---------- gamepad: D-pad menu + pads/sticks as thumbs ---------- */
+const CT=[...document.querySelectorAll('#bar [data-c]')],M={i:0,show:false,ed:null},HB={},BTN=[0,1,8,12,13,14,15];
+const ctl=()=>CT[M.i].querySelector('select,input');
+function mark(){CT.forEach((e,i)=>{e.classList.toggle('f',M.show&&i===M.i);e.classList.toggle('ed',!!M.ed&&i===M.i);});}
+function fire(el){el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input'));}
+function nudge(el,d){
+  if(el.tagName==='SELECT'){const j=clamp(el.selectedIndex+d,0,el.options.length-1);if(j!==el.selectedIndex){el.selectedIndex=j;fire(el);}}
+  else{el.value=clamp(+el.value+d*(el.max-el.min)/20,+el.min,+el.max);fire(el);}
+}
+// A: start editing the highlighted control, then A again accepts. B cancels and restores the old value.
+function padBtn(b){
+  const el=ctl();
+  if(!$('#about').hidden){if(b===0||b===1)$('#about').hidden=true;return;}
+  if(b===8){const d=$('#dbg');d.hidden=!d.hidden;return;}
+  if(b===0){
+    if(!M.show)M.show=true;
+    else if(!el)CT[M.i].click();
+    else M.ed=M.ed?null:{v:el.value};
+  }else if(b===1){
+    if(M.ed){el.value=M.ed.v;fire(el);M.ed=null;}
+  }else{
+    M.show=true;
+    if(M.ed){const s=el.tagName==='SELECT';nudge(el,b===12?(s?-1:1):b===13?(s?1:-1):b===14?-1:1);}
+    else if(b===14||b===15)M.i=clamp(M.i+(b===15?1:-1),0,CT.length-1);
+  }
+  mark();
+}
+function pollGP(){
+  gp=[...(navigator.getGamepads?navigator.getGamepads():[])].find(g=>g&&g.connected&&g.axes.length>=4)||null;
+  const dbg=$('#dbg');
+  if(!dbg.hidden)dbg.textContent=gp?gp.id.slice(0,44)+'\naxes '+gp.axes.slice(0,6).map(v=>v.toFixed(2)).join(' ')+'\nbtn '+gp.buttons.map((b,i)=>b.pressed?i:'').join(' '):'no gamepad (press a button on it)';
+  if(!gp){
+    if(GL&&!lt){S.tT=0;S.uT=0;}GL=false;
+    if(rt&&rt.id==='gp')endR();
+    return;
+  }
+  if($('#start')){if(gp.buttons[0]&&gp.buttons[0].pressed)go();return;}
+  const t=performance.now();
+  for(const id of BTN){
+    const p=gp.buttons[id]&&gp.buttons[id].pressed;
+    if(p){if(!(id in HB)){HB[id]=t+350;padBtn(id);}else if(id>11&&t>HB[id]){HB[id]=t+90;padBtn(id);}}
+    else delete HB[id];
+  }
+  const a=gp.axes,lx=a[0]||0,ly=a[1]||0,rx=a[2]||0,ry=a[3]||0,r=Math.SQRT1_2;
+  // left pad/stick = left thumb: along the diagonal is draw/blow, inward (up-right) is vibrato
+  if(!lt){
+    if(Math.hypot(lx,ly)>.03){
+      const pp=(lx-ly)*r;
+      S.tT=clamp((lx+ly)*r*1.1,-1,1);
+      S.uT=(pp>.2?pp-.2:pp<-.2?pp+.2:0)*L.tw*1.3;GL=true;
+    }else if(GL){S.tT=0;S.uT=0;GL=false;}
+  }
+  // right pad/stick = right thumb: where it lands is the anchor, then it drags the ribbon like a finger; lifting (back to zero) releases
+  if(Math.hypot(rx,ry)>.03){
+    if(!rt){startR('gp',L.CR.x,L.CR.y);GRa={x:rx,y:ry};}
+    if(rt.id==='gp'){const k=H*.55;mvR({x:rt.sx+(rx-GRa.x)*k,y:rt.sy+(ry-GRa.y)*k});}
+  }else if(rt&&rt.id==='gp')endR();
+}
+
+/* ---------- update ---------- */
+function step(){
+  pollGP();
+  const tm0=performance.now(),dm=Math.min(.05,(tm0-(S.mt||tm0))/1000);S.mt=tm0;
+  // trackball coasting: a fast release keeps the ribbon rolling, then it slows and snaps
+  if(!rt&&S.vx){S.x+=S.vx*dm;S.vx*=Math.exp(-2.2*dm);if(Math.abs(S.vx)<1.2)S.vx=0;}
+  if(!rt&&tm0>S.wheel&&!S.vx)S.x+=(Math.round(S.x)-S.x)*.3;
+  {const cx=clampX(S.x);if(cx!==S.x)S.vx=0;S.x=cx;}
+  S.tS+=(S.tT-S.tS)*.7;S.uS+=(S.uT-S.uS)*.4;
+  const a=Math.abs(S.tS),on=a>=DEAD;
+  S.pr=on?Math.pow((a-DEAD)/(1-DEAD),1.2):0;
+  if(on){const d=Math.sign(S.tS);if(d!==S.dir)vib(14);else if(!wasOn)vib(8);S.dir=d;}
+  wasOn=on;
+  const u=Math.max(0,S.uS),vt=on?clamp((u-L.tw*.06)/(L.tw*.8),0,1):0,tn=performance.now(),dt=Math.min(.05,(tn-(S.lt||tn))/1000);
+  S.lt=tn;S.vib+=(vt-S.vib)*.3;
+  S.vph+=6.2832*(4+4*S.vib)*dt;S.wph+=dt*(120+S.vib*400);
+  const cur=Math.round(S.x);
+  if(cur!==S.cell){if(S.cell>=0)vib(6);S.cell=cur;}
+  if(!ac)return;
+  const now=ac.currentTime,ns=notesAt(),shift=S.key,g=.55/Math.sqrt(ns.length),tone=TN();
+  voices.forEach((v,i)=>{
+    if(i<ns.length){
+      const fr=440*Math.pow(2,(clamp(ns[i]+shift,LOWM-2,HIGHM+2)-69)/12);
+      v.o.frequency.setTargetAtTime(fr,now,.01);v.o2.frequency.setTargetAtTime(fr,now,.01);
+      v.g.gain.setTargetAtTime(g,now,.02);
+    }else v.g.gain.setTargetAtTime(0,now,.02);
+    const vc=Math.sin(S.vph)*S.vib*50;
+    v.o.detune.setTargetAtTime(vc,now,.01);v.o2.detune.setTargetAtTime(vc+tone.det,now,.01);
+  });
+  const top=Math.max(...ns)+shift,att=top>80?Math.max(.55,1-(top-80)*.03):1;
+  master.gain.setTargetAtTime(S.pr*.85*att,now,tone.atk);
+  filt.frequency.setTargetAtTime(tone.fb+S.pr*tone.fr,now,.05);
+  noiseG.gain.setTargetAtTime(S.pr*tone.nz,now,.05);
+}
+
+/* ---------- draw ---------- */
+function render(){
+  const{F,CL,CR,dL,nL,dR,half,tw,cell,ang}=L,pr=S.pr,col=S.dir>0?C.blow:C.draw;
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+  ctx.lineCap='round';ctx.textAlign='center';ctx.textBaseline='middle';
+
+  // fixed playhead
+  let ux=CR.x-F.x,uy=CR.y-F.y;const ul=Math.hypot(ux,uy);ux/=ul;uy/=ul;
+  ctx.strokeStyle=C.dead;ctx.lineWidth=3;ctx.beginPath();
+  ctx.moveTo(F.x-ux*H*.1,F.y-uy*H*.1);ctx.lineTo(CR.x+ux*H*.3,CR.y+uy*H*.3);ctx.stroke();
+
+  // ribbon band
+  ctx.save();ctx.translate(CR.x,CR.y);ctx.rotate(ang);
+  const bw=cell*1.2;
+  ctx.globalAlpha=.06;ctx.fillStyle=C.ink;ctx.fillRect(-W*1.5,-bw/2,W*3,bw);
+  ctx.globalAlpha=.5;ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.strokeRect(-W*1.5,-bw/2,W*3,bw);
+  ctx.restore();
+
+  // ribbon cells (holes)
+  const base=Math.round(S.x),R=xRange(),engaged=activeCells();
+  for(let j=-5;j<=8;j++){
+    const k=base+j,d=k-S.x,c=add(CR,dR,d*cell);
+    if(k<R.lo||k>R.hi||c.x<-cell||c.x>W+cell||c.y<-cell||c.y>H+cell)continue;
+    const isEngaged=engaged.includes(k),s=1+.3*Math.exp(-d*d*1.6),sz=cell*.84,act=isEngaged||(Math.abs(d)<.5&&!rt);
+    ctx.save();ctx.translate(c.x,c.y);ctx.rotate(ang);ctx.scale(s,s);
+    ctx.beginPath();ctx.roundRect(-sz/2,-sz/2,sz,sz,sz*.22);
+    ctx.fillStyle=C.bg;ctx.fill();
+    if(isEngaged&&pr>0){
+      ctx.save();ctx.clip();ctx.globalAlpha=.2+.35*pr;ctx.fillStyle=col;
+      ctx.fillRect(-sz/2,S.dir>0?0:-sz/2,sz,sz/2);ctx.restore();
+    }
+    ctx.lineWidth=act?3:1.5;ctx.strokeStyle=C.ink;
+    ctx.globalAlpha=act?1:.5+.4*Math.exp(-d*d);ctx.stroke();ctx.globalAlpha=1;
+    ctx.font='600 '+sz*.24+'px system-ui,sans-serif';
+    ctx.fillStyle=C.draw;ctx.fillText(nm(drawAt(k)+S.key),0,-sz*.27);
+    ctx.fillStyle=C.blow;ctx.fillText(nm(blowAt(k)+S.key),0,sz*.27);
+    ctx.font='500 '+sz*.14+'px system-ui,sans-serif';ctx.globalAlpha=.45;ctx.fillStyle=C.ink;ctx.fillText(k+1,0,0);
+    ctx.restore();
+  }
+
+  // left track
+  ctx.save();ctx.translate(CL.x,CL.y);ctx.rotate(Math.atan2(dL.y,dL.x));
+  ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(-half-tw/2,-tw/2,2*half+tw,tw,tw/2);ctx.stroke();
+  ctx.globalAlpha=.3;ctx.fillStyle=C.dead;ctx.fillRect(-DEAD*half,-tw/2+5,2*DEAD*half,tw-10);
+  ctx.lineWidth=4;
+  ctx.strokeStyle=C.draw;ctx.globalAlpha=S.dir<0&&pr>0?1:.55;
+  ctx.beginPath();ctx.moveTo(-half,0);ctx.lineTo(-DEAD*half-6,0);ctx.stroke();
+  ctx.strokeStyle=C.blow;ctx.globalAlpha=S.dir>0&&pr>0?1:.55;
+  ctx.beginPath();ctx.moveTo(DEAD*half+6,0);ctx.lineTo(half,0);ctx.stroke();
+  ctx.globalAlpha=.8;ctx.fillStyle=C.ink;ctx.font='500 12px system-ui,sans-serif';
+  ctx.fillText('DRAW',-half*.55,tw/2+14);ctx.fillText('OFF',0,tw/2+14);ctx.fillText('BLOW',half*.55,tw/2+14);
+  ctx.restore();
+
+  // airflow line (ripples with the live wave shape)
+  const P=add(add(CL,dL,S.tS*half),nL,clamp(S.uS,-tw*.55,tw*.55));
+  let dx=F.x-P.x,dy=F.y-P.y;const dl=Math.hypot(dx,dy)||1;dx/=dl;dy/=dl;
+  const E={x:F.x+dx*H*.1,y:F.y+dy*H*.1},qx=-dy,qy=dx;
+  ctx.beginPath();
+  for(let i=0;i<=48;i++){
+    const s=i/48,env=Math.sin(Math.PI*s),w=table[(((s*192+S.wph)|0)%64+64)%64];
+    const off=w*(pr*9+S.vib*4)*env;
+    const x=P.x+(E.x-P.x)*s+qx*off,y=P.y+(E.y-P.y)*s+qy*off;
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  }
+  ctx.strokeStyle=pr>0?col:C.dead;ctx.lineWidth=2.5+pr*7;ctx.globalAlpha=pr>0?.55+.45*pr:.6;ctx.stroke();ctx.globalAlpha=1;
+
+  // thumb handle
+  ctx.beginPath();ctx.arc(P.x,P.y,tw*.34,0,7);ctx.fillStyle=C.bg;ctx.fill();
+  if(pr>0){ctx.globalAlpha=.15+.4*pr;ctx.fillStyle=col;ctx.fill();ctx.globalAlpha=1;}
+  ctx.lineWidth=3;ctx.strokeStyle=pr>0?col:C.ink;ctx.stroke();
+
+  // focal glow
+  const gc=pr>0?col:'#ffc83d',gr=14+pr*50,gg=ctx.createRadialGradient(F.x,F.y,2,F.x,F.y,gr);
+  gg.addColorStop(0,gc+'cc');gg.addColorStop(1,gc+'00');
+  ctx.fillStyle=gg;ctx.beginPath();ctx.arc(F.x,F.y,gr,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(F.x,F.y,9+pr*3,0,7);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=gc;ctx.stroke();
+
+  // readout under the focal point
+  const ns=notesAt(),main=ns.map(m=>nm(Math.round(m)+S.key)).join(' ');
+  const sub=(pr>0?(S.dir>0?'blow':'draw'):'')+(engaged.length>1?'  '+engaged.length+' holes':'')+(S.vib>.05?'  vibrato':'');
+  ctx.fillStyle=C.ink;ctx.font=(main.length>8?'700 18px':'700 24px')+' system-ui,sans-serif';ctx.fillText(main,F.x,F.y+46);
+  ctx.globalAlpha=.7;ctx.font='500 12px system-ui,sans-serif';ctx.fillText(sub,F.x,F.y+68);ctx.globalAlpha=1;
+
+  if(H>W){ctx.fillStyle=C.bg;ctx.globalAlpha=.9;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;ctx.fillStyle=C.ink;ctx.font='600 16px system-ui,sans-serif';ctx.fillText('Rotate to landscape',W/2,H/2);}
+}
+
+resize();applyTheme();setWave();
+addEventListener('resize',resize);
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',readColors);
+requestAnimationFrame(function f(){step();render();requestAnimationFrame(f);});
+})();
+</script>
+</body>
+</html>
