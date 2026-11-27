@@ -62,7 +62,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </div></div>
 <div id="start">
   <b>Dual-thumb harmonica</b>
-  <span>Phone: turn to landscape and raise the volume. Left thumb: slide along the left track. Up-left is draw, down-right is blow, the middle is silent. Slide toward the middle of the screen for vibrato. Right thumb: drag the ribbon past the playhead. Pull outward to widen from the middle hole (up to 5 holes); push inward to split, which plays the middle hole plus a third, fifth or octave above it and skips the holes between. Flick and let go and it keeps rolling; touch to stop.</span>
+  <span>Phone: turn to landscape and raise the volume. Left thumb: slide along the left track. Up-left is draw, down-right is blow, the middle is silent. Slide toward the middle of the screen for vibrato. Right thumb: drag the ribbon past the playhead. Pull outward to widen from the middle hole (up to 5 holes). For a second note, lift the thumb (the note keeps playing), then touch above the ribbon at the hole you want; slide to change it, lift to drop it. Flick and let go and it keeps rolling; touch to stop.</span>
   <span>Gamepad: the left and right pads (or sticks) work like the two thumbs. Triggers open neighbouring holes: left trigger to the left, right trigger to the right (analog, three stages each). D-pad moves along the top row, A edits or accepts, B cancels, Back shows a raw axis readout. Steam Input: set both pads to Joystick Move.</span>
   <span><u>Tap or press A to start</u></span>
 </div>
@@ -98,7 +98,7 @@ const pretty=s=>s.replace('b','♭').replace('#','♯');
 const nm=m=>pretty(NAMES[((m%12)+12)%12])+(Math.floor(m/12)-1);
 const blowAt=k=>T().b[clamp(k,0,9)],drawAt=k=>T().d[clamp(k,0,9)];
 const add=(p,d,k)=>({x:p.x+d.x*k,y:p.y+d.y*k});
-let ac,master,filt,noiseG,voices=[],C={},W=0,H=0,L={},dpr=1,lt=null,rt=null,lastVib=0,wasOn=false,amps=[];
+let ac,master,filt,noiseG,voices=[],C={},W=0,H=0,L={},dpr=1,lt=null,rt=null,xt=null,lastVib=0,wasOn=false,amps=[];
 let gp=null,GL=false,GRa=null;
 const table=new Float32Array(64);
 
@@ -160,8 +160,15 @@ function splitPartner(c,st){
   return best;
 }
 // Active holes: the one under the playhead plus whatever pull / push / triggers add
+// The hole under the second-note finger (placed above the ribbon), or null
+function pointerHole(){
+  if(!xt)return null;
+  const R=xRange(),a=((xt.x-L.CR.x)*L.dR.x+(xt.y-L.CR.y)*L.dR.y)/L.cell;
+  return clamp(Math.round(S.x+a),R.lo,R.hi);
+}
 function activeCells(){
   const R=xRange(),c=clamp(Math.round(S.x),R.lo,R.hi),s=S.side,out=[c];
+  const ph=pointerHole();if(ph!==null&&ph!==c)out.push(ph);
   const push=i=>{if(i>=R.lo&&i<=R.hi&&!out.includes(i)){out.push(i);return true;}return false;};
   // pull: widen from the centre hole, nearest side first (c+s, c-s, c+2s, c-2s), sliding inward at the ends of the harp
   let need=Math.max(0,-S.spread);
@@ -207,7 +214,8 @@ function mvR(p){
   const stepDist=L.cell*.48,hyst=L.cell*.1;
   let sp=S.spread;
   // push (toward the middle of the screen, positive) = split stages; pull (outward, negative) = widening stages
-  while(sp<SPLIT_MAX&&perp>(sp+1)*stepDist+hyst)sp++;
+  const maxSp=rt.id==='gp'?SPLIT_MAX:0;
+  while(sp<maxSp&&perp>(sp+1)*stepDist+hyst)sp++;
   while(sp>-WIDE_MAX&&perp<(sp-1)*stepDist-hyst)sp--;
   while(sp>0&&perp<sp*stepDist-hyst)sp--;
   while(sp<0&&perp>sp*stepDist+hyst)sp++;
@@ -217,15 +225,23 @@ cv.addEventListener('pointerdown',e=>{
   if(ac&&ac.state!=='running')ac.resume();
   cv.setPointerCapture(e.pointerId);const p=pt(e);
   if(p.x<W/2){if(!lt){lt={id:e.pointerId};mvL(p);}}
-  else if(!rt)startR(e.pointerId,p.x,p.y);
+  else{
+    // above the ribbon band (toward the middle of the screen) = second-note finger; on the band = drag the ribbon
+    const perp=(p.x-L.CR.x)*L.nR.x+(p.y-L.CR.y)*L.nR.y;
+    if(perp>L.cell*.7){if(!xt){xt={id:e.pointerId,x:p.x,y:p.y,h:-1};S.vx=0;}}
+    else if(!rt)startR(e.pointerId,p.x,p.y);
+  }
 });
 cv.addEventListener('pointermove',e=>{
   const p=pt(e);
-  if(lt&&lt.id===e.pointerId)mvL(p);else if(rt&&rt.id===e.pointerId)mvR(p);
+  if(lt&&lt.id===e.pointerId)mvL(p);
+  else if(rt&&rt.id===e.pointerId)mvR(p);
+  else if(xt&&xt.id===e.pointerId){xt.x=p.x;xt.y=p.y;}
 });
 const up=e=>{
   if(lt&&lt.id===e.pointerId){lt=null;S.tT=0;S.uT=0;}
   if(rt&&rt.id===e.pointerId)endR();
+  if(xt&&xt.id===e.pointerId)xt=null;
 };
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('contextmenu',e=>e.preventDefault());
@@ -348,6 +364,7 @@ function step(){
   const u=Math.max(0,S.uS),vt=on?clamp((u-L.tw*.06)/(L.tw*.8),0,1):0,tn=performance.now(),dt=Math.min(.05,(tn-(S.lt||tn))/1000);
   S.lt=tn;S.vib+=(vt-S.vib)*.3;
   S.vph+=6.2832*(4+4*S.vib)*dt;S.wph+=dt*(120+S.vib*400);
+  if(xt){const h=pointerHole();if(h!==xt.h){if(xt.h>=0)vib(6);xt.h=h;}}
   const cur=Math.round(S.x);
   if(cur!==S.cell){if(S.cell>=0)vib(6);S.cell=cur;}
   if(!ac)return;
@@ -406,7 +423,13 @@ function render(){
     ctx.font='500 '+sz*.14+'px system-ui,sans-serif';ctx.globalAlpha=.45;ctx.fillStyle=C.ink;ctx.fillText(k+1,0,0);
     ctx.restore();
   }
-
+  // second-note finger: line from the chosen hole to the finger
+  if(xt){
+    const h=pointerHole(),hc=add(CR,dR,(h-S.x)*cell);
+    ctx.save();ctx.globalAlpha=.6;ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.setLineDash([5,5]);
+    ctx.beginPath();ctx.moveTo(hc.x,hc.y);ctx.lineTo(xt.x,xt.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(xt.x,xt.y,cell*.28,0,7);ctx.lineWidth=3;ctx.stroke();ctx.restore();
+  }
   // left track
   ctx.save();ctx.translate(CL.x,CL.y);ctx.rotate(Math.atan2(dL.y,dL.x));
   ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(-half-tw/2,-tw/2,2*half+tw,tw,tw/2);ctx.stroke();
@@ -446,7 +469,7 @@ function render(){
 
   // readout under the focal point
   const ns=notesAt(),main=ns.map(m=>nm(Math.round(m)+S.key)).join(' ');
-  const sub=(pr>0?(S.dir>0?'blow':'draw'):'')+(engaged.length>1?(S.spread>0?'  split':'  '+engaged.length+' holes'):'')+(S.vib>.05?'  vibrato':'');
+  const sub=(pr>0?(S.dir>0?'blow':'draw'):'')+(engaged.length>1?(S.spread>0?'  split':(xt&&S.spread>=0)?'  2nd note':'  '+engaged.length+' holes'):'')+(S.vib>.05?'  vibrato':'');
   ctx.fillStyle=C.ink;ctx.font=(main.length>8?'700 18px':'700 24px')+' system-ui,sans-serif';ctx.fillText(main,F.x,F.y+46);
   ctx.globalAlpha=.7;ctx.font='500 12px system-ui,sans-serif';ctx.fillText(sub,F.x,F.y+68);ctx.globalAlpha=1;
 
