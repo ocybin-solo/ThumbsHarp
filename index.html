@@ -211,7 +211,7 @@ function mvR(p){
   const nx=clampX(rt.x0-along*S.sens/L.cell),tm=performance.now(),dtv=Math.max(.004,(tm-rt.vt)/1000);
   rt.vv=.5*rt.vv+.5*((nx-S.x)/dtv);rt.vt=tm;S.x=nx;
   // perpendicular movement from where the thumb landed opens neighbouring holes (one direction per side)
-  const stepDist=L.cell*.48,hyst=L.cell*.1;
+  const stepDist=L.cell*.48,hyst=L.cell*.06;
   let sp=S.spread;
   // push (toward the middle of the screen, positive) = split stages; pull (outward, negative) = widening stages
   const maxSp=rt.id==='gp'?SPLIT_MAX:0;
